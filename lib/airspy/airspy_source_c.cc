@@ -350,9 +350,10 @@ osmosdr::meta_range_t airspy_source_c::get_sample_rates()
 {
   osmosdr::meta_range_t range;
 
-  for (size_t i = 0; i < _sample_rates.size(); i++)
+  for (size_t i = 0; i < _sample_rates.size(); i++) {
+	std::cerr << "SR: [" << i << "]: " << _sample_rates[i].first << std::endl;
     range += osmosdr::range_t( _sample_rates[i].first );
-
+  }
   return range;
 }
 

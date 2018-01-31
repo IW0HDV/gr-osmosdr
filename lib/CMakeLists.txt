@@ -249,6 +249,14 @@ GR_INCLUDE_SUBDIRECTORY(freesrp)
 endif(ENABLE_FREESRP)
 
 ########################################################################
+# Setup PERSEUS component
+########################################################################
+GR_REGISTER_COMPONENT("Microtelecom Perseus Receiver" ENABLE_PERSEUS LIBPERSEUS_FOUND)
+if(ENABLE_PERSEUS)
+GR_INCLUDE_SUBDIRECTORY(perseus)
+endif(ENABLE_PERSEUS)
+
+########################################################################
 # Setup configuration file
 ########################################################################
 ADD_DEFINITIONS(-DHAVE_CONFIG_H=1)
