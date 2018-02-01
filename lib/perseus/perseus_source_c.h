@@ -87,9 +87,20 @@ public:
   std::vector<std::string> get_gain_names( size_t chan = 0 );
   osmosdr::gain_range_t get_gain_range( size_t chan = 0 );
   osmosdr::gain_range_t get_gain_range( const std::string & name, size_t chan = 0 );
-  double set_gain( double gain, size_t chan = 0 );
+
+  double set_gain( double gain, size_t chan = 0 ) {return gain; }
+  double get_gain( size_t chan = 0 ) {return _att_value; }
+
+  double set_attenuator( double gain, size_t chan = 0 );
+  double get_attenuator( size_t chan = 0 );
+
+  double set_adc_preamp( double gain, size_t chan = 0 );
+  double get_adc_preamp( size_t chan = 0 );
+
+  double set_adc_dither( double gain, size_t chan = 0 );
+  double get_adc_dither( size_t chan = 0 );
+
   double set_gain( double gain, const std::string & name, size_t chan = 0 );
-  double get_gain( size_t chan = 0 );
   double get_gain( const std::string & name, size_t chan = 0 );
 
   std::vector< std::string > get_antennas( size_t chan = 0 );
@@ -115,6 +126,10 @@ private:
   
   bool _frun;
   int _cnt;
+  double _att_value;
+  bool _adc_preamp;
+  bool _adc_dither;
+  bool _preselector;
 };
 
 #endif /* INCLUDED_PERSEUS_SOURCE_C_H */

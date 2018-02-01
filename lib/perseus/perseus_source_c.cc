@@ -89,7 +89,11 @@ perseus_source_c::perseus_source_c (const std::string &args)
     _center_freq(0),
     _freq_corr(0),
     _frun(false),
-    _cnt(0)
+    _cnt(0),
+    _att_value(0),
+    _adc_preamp(false),
+    _adc_dither(false),
+    _preselector(false)
 {
   //int ret;
 
@@ -174,9 +178,9 @@ perseus_source_c::perseus_source_c (const std::string &args)
   	PERSEUS_THROW_ON_ERROR(ret, "Perseus fpga configuration error");
   }
   
-  perseus_set_attenuator_in_db(_dev, PERSEUS_ATT_0DB);
+  perseus_set_attenuator_in_db(_dev, _att_value);
   // Enable ADC Dither, Disable ADC Preamp
-  perseus_set_adc(_dev, true, false);
+  perseus_set_adc(_dev, _adc_dither == true ? 1:0, _adc_preamp == true ? 1:0);
   // set the NCO frequency in the middle of the range allowed
   set_center_freq( (get_freq_range().start() + get_freq_range().stop()) / 2.0 );
   set_sample_rate( get_sample_rates().start() );
@@ -425,7 +429,7 @@ double perseus_source_c::set_center_freq( double freq, size_t chan )
     ret = 
     perseus_set_ddc_center_freq(_dev,
                                 (uint64_t)(freq * (1.0 + (_freq_corr * 10e-6))), 
-                                1);
+                                _preselector == true ? 1:0);
     if ( ret == PERSEUS_NOERROR ) {
       _center_freq = freq;
     } else {
@@ -453,55 +457,165 @@ double perseus_source_c::get_freq_corr( size_t chan )
 
 std::vector<std::string> perseus_source_c::get_gain_names( size_t chan )
 {
-  return {};
+  std::vector< std::string > names;
+
+  names += "Attenuator";
+  names += "ADC preamp";
+  names += "ADC dither";
+
+  return names;
 }
 
+//
+// FIXME
+//
 osmosdr::gain_range_t perseus_source_c::get_gain_range( size_t chan )
 {
-  return osmosdr::gain_range_t();
+    return get_gain_range( "Attenuator", chan );
 }
 
 osmosdr::gain_range_t perseus_source_c::get_gain_range( const std::string & name, size_t chan )
 {
+  if ( "Attenuator" == name ) {
+    return osmosdr::gain_range_t( -30, 0, 10 );
+  }
+  if ( "ADC preamp" == name ) {
+    return osmosdr::gain_range_t( 0, 6, 6 );
+  }
+  if ( "ADC dither" == name ) {
+    return osmosdr::gain_range_t( 0, 1, 1 );
+  }
+
   return osmosdr::gain_range_t();
 }
 
 
-double perseus_source_c::set_gain( double gain, size_t chan )
+double perseus_source_c::set_attenuator( double gain, size_t chan )
 {
+  int ret;
+
+  gain = - gain;
+  if (_dev && _att_value != gain) {
+    ret = perseus_set_attenuator_in_db (_dev, gain);
+
+    if ( PERSEUS_NOERROR == ret ) {
+      _att_value = gain;
+    } else {
+      std::cerr << "ERROR: perseus_set_attenuator_in_db: " <<  gain << std::endl;
+    }
+  }
+
+  return _att_value;
+}
+
+double perseus_source_c::set_adc_preamp( double gain, size_t chan )
+{
+  std::cerr << "set_adc_preamp: " << gain << std::endl;
+
+  if (_dev) {
+	_adc_preamp = (gain != 0. ? true : false);
+    int ret =
+    perseus_set_adc(_dev, _adc_dither == true ? 1:0, _adc_preamp == true ? 1:0);
+    if ( PERSEUS_NOERROR != ret ) {
+      std::cerr << "ERROR: perseus_set_adc" << ret << std::endl;
+    }
+  }
   return gain;
 }
+
+double perseus_source_c::set_adc_dither( double gain, size_t chan )
+{
+  std::cerr << "set_adc_dither: " << gain << std::endl;
+
+  if (_dev) {
+	_adc_dither = (gain != 0. ? true : false);
+    int ret =
+    perseus_set_adc(_dev, _adc_dither == true ? 1:0, _adc_preamp == true ? 1:0);
+    if ( PERSEUS_NOERROR != ret ) {
+      std::cerr << "ERROR: perseus_set_adc" << ret << std::endl;
+    }
+  }
+  return gain;
+}
+
+double perseus_source_c::get_attenuator( size_t chan )
+{
+  return _att_value;
+}
+
+double perseus_source_c::get_adc_preamp(size_t chan )
+{
+  double v = _adc_preamp == true ? 6. : 0.;
+  std::cerr << "get_adc_preamp: " << _adc_preamp << " value" << v << std::endl;
+  return v;
+}
+
+double perseus_source_c::get_adc_dither(size_t chan )
+{
+  double v = _adc_dither == true ? 1. : 0.;
+  std::cerr << "get_adc_dither: " << _adc_dither << " value" << v << std::endl;
+  return v;
+}
+
 
 double perseus_source_c::set_gain( double gain, const std::string & name, size_t chan)
 {
+  if ( "Attenuator" == name ) {
+    return set_attenuator( gain, chan );
+  }
+  if ( "ADC preamp" == name ) {
+    return set_adc_preamp( gain, chan );
+  }
+  if ( "ADC dither" == name ) {
+    return set_adc_dither( gain, chan );
+  }
   return gain;
 }
 
-double perseus_source_c::get_gain( size_t chan )
-{
-  return 0.0;
-}
 
 double perseus_source_c::get_gain( const std::string & name, size_t chan )
 {
+  if ( "Attenuator" == name ) {
+    return get_attenuator( chan );
+  }
+  if ( "ADC preamp" == name ) {
+    return get_adc_preamp( chan );
+  }
+  if ( "ADC dither" == name ) {
+    return get_adc_dither( chan );
+  }
   return 0.0;
 }
+
+
 
 std::vector< std::string > perseus_source_c::get_antennas( size_t chan )
 {
   std::vector< std::string > antennas;
 
-  antennas += get_antenna( chan );
+  antennas += "RX";
+  antennas += "RX+PRESELECTOR";
 
   return antennas;
 }
 
 std::string perseus_source_c::set_antenna( const std::string & antenna, size_t chan )
 {
+  if ( antenna == "RX" ) {
+	_preselector = false;
+	set_center_freq( get_center_freq() );
+	return "RX";
+  }
+  if ( antenna == "RX+PRESELECTOR" ) {
+	_preselector = true;
+	set_center_freq( get_center_freq() );
+    return "RX+PRESELECTOR";
+  }
   return get_antenna( chan );
 }
 
 std::string perseus_source_c::get_antenna( size_t chan )
 {
+  std::cerr << "perseus_source_c::get_antenna: " << chan << std::endl;
   return "RX";
 }
