@@ -249,6 +249,14 @@ GR_INCLUDE_SUBDIRECTORY(freesrp)
 endif(ENABLE_FREESRP)
 
 ########################################################################
+# Setup ELAD component
+########################################################################
+GR_REGISTER_COMPONENT("Elad S1 Receiver" ENABLE_ELAD LIBELAD_FOUND)
+if(ENABLE_ELAD)
+GR_INCLUDE_SUBDIRECTORY(elad)
+endif(ENABLE_ELAD)
+
+########################################################################
 # Setup configuration file
 ########################################################################
 ADD_DEFINITIONS(-DHAVE_CONFIG_H=1)
