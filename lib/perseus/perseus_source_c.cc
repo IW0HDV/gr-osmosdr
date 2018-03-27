@@ -95,8 +95,6 @@ perseus_source_c::perseus_source_c (const std::string &args)
     _adc_dither(false),
     _preselector(false)
 {
-  //int ret;
-
   dict_t dict = params_to_dict(args);
 
   _dev = NULL;
@@ -157,7 +155,6 @@ perseus_source_c::perseus_source_c (const std::string &args)
           int i = 0;
           while (buf[i]) {
               fprintf(stderr, "#%d: sample rate: %d\n", i, buf[i]);
-
               _sample_rates.push_back( std::pair<double, uint32_t>( buf[i], i ) );
               i++;
           }
@@ -261,8 +258,6 @@ int perseus_source_c::perseus_rx_callback(void *buf, int buf_size)
      s.q4 = *samplebuf++;
 
      // convert 24 bit two's complements integers to float in [-1.0 - +1.0] range
-
-    /* Push sample to the fifo */
     _fifo->push_back( gr_complex( (float)(s.iq.i) / (INT_MAX - 256), (float)(s.iq.q) / (INT_MAX - 256) ) );
 
   }
