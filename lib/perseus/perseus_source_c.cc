@@ -103,15 +103,15 @@ perseus_source_c::perseus_source_c (const std::string &args)
 
   // Set debug info dumped to stderr to the maximum verbose level
   perseus_set_debug(3);
-  
+
   //fprintf (stderr, "Revision: %s\n", git_revision);
   //fprintf (stderr, "SAMPLE RATE: %d\n", sr);
   //fprintf (stderr, "NBUF: %d BUF SIZE: %d TOTAL BUFFER LENGTH: %d\n", nb, bs, nb*bs);
-  
+
   // Check how many Perseus receivers are connected to the system
   int num_perseus = perseus_init();
   std::cerr << "## Microtelecom Perseus ctor: " << num_perseus << " Perseus receivers found." <<  std::endl;
-  
+
   if (num_perseus==0) {
      perseus_exit();
      PERSEUS_THROW_ON_ERROR(PERSEUS_DEVNOTFOUND, "No Perseus receivers detected");
@@ -125,19 +125,19 @@ perseus_source_c::perseus_source_c (const std::string &args)
   if (int rc = perseus_firmware_download(_dev,NULL)<0) {
      PERSEUS_THROW_ON_ERROR (rc, "firmware download error");
   }
-  
+
   // Dump some information about the receiver (S/N and HW rev)
   int flag;
   perseus_is_preserie(_dev, &flag);
-  if (flag != 0) 
+  if (flag != 0)
      fprintf(stderr, "The device is a preserie unit");
   else {
      eeprom_prodid prodid;
-     if (perseus_get_product_id(_dev,&prodid)<0) 
+     if (perseus_get_product_id(_dev,&prodid)<0)
         fprintf(stderr, "get product id error: %s", perseus_errorstr());
      else
         fprintf(stderr, "Receiver S/N: %05d-%02hX%02hX-%02hX%02hX-%02hX%02hX - HW Release:%hd.%hd\n",
-               (uint16_t) prodid.sn, 
+               (uint16_t) prodid.sn,
                (uint16_t) prodid.signature[5],
                (uint16_t) prodid.signature[4],
                (uint16_t) prodid.signature[3],
@@ -146,18 +146,18 @@ perseus_source_c::perseus_source_c (const std::string &args)
                (uint16_t) prodid.signature[0],
                (uint16_t) prodid.hwrel,
                (uint16_t) prodid.hwver);
-  } 
+  }
   // Printing all sampling rates available .....
   {
       int buf[BUFSIZ];
-  
+
       if (perseus_get_sampling_rates (_dev, buf, sizeof(buf)/sizeof(buf[0])) < 0) {
          fprintf(stderr, "get sampling rates error: %s\n", perseus_errorstr());
       } else {
           int i = 0;
           while (buf[i]) {
               fprintf(stderr, "#%d: sample rate: %d\n", i, buf[i]);
-              
+
               _sample_rates.push_back( std::pair<double, uint32_t>( buf[i], i ) );
               i++;
           }
@@ -177,14 +177,14 @@ perseus_source_c::perseus_source_c (const std::string &args)
   	std::cerr <<  "fpga configuration error: " <<  perseus_errorstr() << std::endl;
   	PERSEUS_THROW_ON_ERROR(ret, "Perseus fpga configuration error");
   }
-  
+
   perseus_set_attenuator_in_db(_dev, _att_value);
   // Enable ADC Dither, Disable ADC Preamp
   perseus_set_adc(_dev, _adc_dither == true ? 1:0, _adc_preamp == true ? 1:0);
   // set the NCO frequency in the middle of the range allowed
   set_center_freq( (get_freq_range().start() + get_freq_range().stop()) / 2.0 );
   set_sample_rate( get_sample_rates().start() );
-  
+
   _fifo = new boost::circular_buffer<gr_complex>(5000000);
   if (!_fifo) {
     throw std::runtime_error( std::string(__FUNCTION__) + " " +
@@ -237,10 +237,10 @@ int perseus_source_c::perseus_rx_callback(void *buf, int buf_size)
   size_t i, n_avail, to_copy, num_samples;
 
   uint8_t *samplebuf = (uint8_t*)buf;
-  
+
   num_samples = buf_size/6;
 
-  if (buf_size % 6) 
+  if (buf_size % 6)
       std::cerr << "FATAL !!!!!!! not on boundary" << std::endl;
 
   iq_sample s;
@@ -251,7 +251,7 @@ int perseus_source_c::perseus_rx_callback(void *buf, int buf_size)
   to_copy = (n_avail < num_samples ? n_avail : num_samples);
 
   for (i = 0; i < to_copy; i++ ) {
-     
+
      s.i1 = s.q1 = 0;
      s.i2 = *samplebuf++;
      s.i3 = *samplebuf++;
@@ -259,16 +259,16 @@ int perseus_source_c::perseus_rx_callback(void *buf, int buf_size)
      s.q2 = *samplebuf++;
      s.q3 = *samplebuf++;
      s.q4 = *samplebuf++;
-     
+
      // convert 24 bit two's complements integers to float in [-1.0 - +1.0] range
-	  
+
     /* Push sample to the fifo */
     _fifo->push_back( gr_complex( (float)(s.iq.i) / (INT_MAX - 256), (float)(s.iq.q) / (INT_MAX - 256) ) );
 
   }
   // keep a counter of processed bytes
   _cnt += buf_size;
-  
+
   _fifo_lock.unlock();
 
   /* We have made some new samples available to the consumer in work() */
@@ -290,7 +290,7 @@ int perseus_source_c::_perseus_rx_callback(void *buf, int buf_size, void *extra)
   perseus_source_c *obj = (perseus_source_c *)extra;
 
   return obj->perseus_rx_callback((float *)buf, buf_size);
-  
+
   return 0;
 }
 
@@ -301,8 +301,8 @@ bool perseus_source_c::start()
 
   if ( ! _dev )
     return false;
-    
-  std::cerr << "***** START COUNTER: " << _cnt 
+
+  std::cerr << "***** START COUNTER: " << _cnt
             << " mod 6 " << (_cnt % 6) << std::endl;
 
   _frun = true;
@@ -311,15 +311,15 @@ bool perseus_source_c::start()
   // re-set the sample rate each time the stream is started
   set_sample_rate( get_sample_rate() );
 
-  ret = perseus_start_async_input(_dev, 
-                                  6 * 1024 * 2 /* buffer size */, 
+  ret = perseus_start_async_input(_dev,
+                                  6 * 1024 * 2 /* buffer size */,
                                   perseus_source_c::_perseus_rx_callback,
                                   (void *)this);
   if (ret != PERSEUS_NOERROR) {
-    std::cerr << "Failed to start RX streaming (" 
+    std::cerr << "Failed to start RX streaming ("
               << ret << ")" << std::endl;
-    return false;  
-  } else 
+    return false;
+  } else
     return true;
 }
 
@@ -330,15 +330,15 @@ bool perseus_source_c::stop()
 
   _frun = false;
 
-  std::cerr << "***** STOP COUNTER: " << _cnt 
+  std::cerr << "***** STOP COUNTER: " << _cnt
             << " mod 6 " << (_cnt % 6) << std::endl;
 
   int ret = perseus_stop_async_input(_dev);
 
   if ( ret != PERSEUS_NOERROR ) {
     std::cerr << "Failed to stop RX streaming (" << ret << ")" << std::endl;
-    return false;  
-  } else 
+    return false;
+  } else
     return true;
 }
 
@@ -375,7 +375,7 @@ std::vector<std::string> perseus_source_c::get_devices()
 
   std::string args = "perseus=0,label='Perseus'";
   devices.push_back( args );
-  
+
   return devices;
 }
 
@@ -390,7 +390,7 @@ osmosdr::meta_range_t perseus_source_c::get_sample_rates()
 
   for (size_t i = 0; i < _sample_rates.size(); i++) {
     range += osmosdr::range_t( _sample_rates[i].first );
-    std::cerr << "SR: "        << i   << " : (" 
+    std::cerr << "SR: "        << i   << " : ("
               << _sample_rates[i].first << ")" << std::endl;
   }
   return range;
@@ -400,10 +400,10 @@ double perseus_source_c::set_sample_rate( double rate )
 {
   int ret;
   if ((ret = perseus_set_sampling_rate(_dev, rate)) < 0) {
-     PERSEUS_THROW_ON_ERROR(ret, "Unable to set sample rate."); 
-  } else 
+     PERSEUS_THROW_ON_ERROR(ret, "Unable to set sample rate.");
+  } else
      _sample_rate = rate;
-  
+
   return get_sample_rate();
 }
 
@@ -426,9 +426,13 @@ double perseus_source_c::set_center_freq( double freq, size_t chan )
   int ret;
 
   if (_dev) {
-    ret = 
+	// avoid to crash when the frequency is out of range
+	if (freq > PERSEUS_DDC_FREQ_MAX) freq = PERSEUS_DDC_FREQ_MAX;
+	if (freq < PERSEUS_DDC_FREQ_MIN) freq = PERSEUS_DDC_FREQ_MIN;
+
+    ret =
     perseus_set_ddc_center_freq(_dev,
-                                (uint64_t)(freq * (1.0 + (_freq_corr * 10e-6))), 
+                                (uint64_t)(freq * (1.0 + (_freq_corr * 10e-6))),
                                 _preselector == true ? 1:0);
     if ( ret == PERSEUS_NOERROR ) {
       _center_freq = freq;
