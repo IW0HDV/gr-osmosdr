@@ -123,7 +123,7 @@ private:
   double _sample_rate;
   double _center_freq;
   double _freq_corr;
-  
+
   bool _frun;
   int _cnt;
   double _att_value;
