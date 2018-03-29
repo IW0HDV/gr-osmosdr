@@ -130,6 +130,7 @@ private:
   bool _adc_preamp;
   bool _adc_dither;
   bool _preselector;
+  float _acf;
 };
 
 #endif /* INCLUDED_PERSEUS_SOURCE_C_H */

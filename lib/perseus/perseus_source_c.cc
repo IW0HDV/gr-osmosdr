@@ -93,7 +93,8 @@ perseus_source_c::perseus_source_c (const std::string &args)
     _att_value(0),
     _adc_preamp(false),
     _adc_dither(false),
-    _preselector(false)
+    _preselector(false),
+    _acf(1.0)
 {
   dict_t dict = params_to_dict(args);
 
@@ -258,7 +259,10 @@ int perseus_source_c::perseus_rx_callback(void *buf, int buf_size)
      s.q4 = *samplebuf++;
 
      // convert 24 bit two's complements integers to float in [-1.0 - +1.0] range
-    _fifo->push_back( gr_complex( (float)(s.iq.i) / (INT_MAX - 256), (float)(s.iq.q) / (INT_MAX - 256) ) );
+     // applying the correction factor
+    _fifo->push_back( gr_complex( ((float)(s.iq.i) / (float)(INT_MAX - 256)) * _acf,
+								  ((float)(s.iq.q) / (float)(INT_MAX - 256)) * _acf )
+					);
 
   }
   // keep a counter of processed bytes
@@ -461,6 +465,7 @@ std::vector<std::string> perseus_source_c::get_gain_names( size_t chan )
   names += "Attenuator";
   names += "ADC preamp";
   names += "ADC dither";
+  names += "ACF";
 
   return names;
 }
@@ -483,6 +488,9 @@ osmosdr::gain_range_t perseus_source_c::get_gain_range( const std::string & name
   }
   if ( "ADC dither" == name ) {
     return osmosdr::gain_range_t( 0, 1, 1 );
+  }
+  if ( "ACF" == name ) {
+    return osmosdr::gain_range_t( 0, 20, .1 );
   }
 
   return osmosdr::gain_range_t();
@@ -568,6 +576,11 @@ double perseus_source_c::set_gain( double gain, const std::string & name, size_t
   if ( "ADC dither" == name ) {
     return set_adc_dither( gain, chan );
   }
+  if ( "ACF" == name ) {
+    _acf =  pow(10,gain/10);
+    std::cerr << "ACF gain in dB: " << gain << " ratio " << _acf << std::endl;
+    return gain;
+  }
   return gain;
 }
 
@@ -582,6 +595,11 @@ double perseus_source_c::get_gain( const std::string & name, size_t chan )
   }
   if ( "ADC dither" == name ) {
     return get_adc_dither( chan );
+  }
+  if ( "ACF" == name ) {
+    double x = 10 * log(_acf);
+    std::cerr << "ACF gain in dB: " << x << " ratio " << _acf << std::endl;
+    return x;
   }
   return 0.0;
 }
