@@ -175,18 +175,36 @@ perseus_source_c::perseus_source_c (const std::string &args)
   	PERSEUS_THROW_ON_ERROR(ret, "Perseus fpga configuration error");
   }
 
-  perseus_set_attenuator_in_db(_dev, _att_value);
-  // Enable ADC Dither, Disable ADC Preamp
-  perseus_set_adc(_dev, _adc_dither == true ? 1:0, _adc_preamp == true ? 1:0);
-  // set the NCO frequency in the middle of the range allowed
-  set_center_freq( (get_freq_range().start() + get_freq_range().stop()) / 2.0 );
-  set_sample_rate( get_sample_rates().start() );
-
   _fifo = new boost::circular_buffer<gr_complex>(5000000);
   if (!_fifo) {
     throw std::runtime_error( std::string(__FUNCTION__) + " " +
                               "Failed to allocate a sample FIFO!" );
   }
+
+  int nav = -1;
+  //perseus=0[,attenuator=0|-10|-20|-30][,wideband[0|1]][,adcpreamp=0|1][,adcdither=0|1]
+  if ( dict.count( "attenuator" ) )
+     nav = -(boost::lexical_cast< int >( dict["attenuator"] ));
+  if ( dict.count( "preselector" ) )
+     _preselector = ( boost::lexical_cast< int > ( dict["preselector"] ) == 1 );
+   if ( dict.count( "adcpreamp" ) )
+     _adc_preamp = boost::lexical_cast< int >( dict["adcpreamp"] );
+  if ( dict.count( "adcdither" ) )
+     _adc_dither = boost::lexical_cast< int >( dict["adcdither"] );
+
+
+  // attenuator
+  if (nav != -1) {
+     std::cerr << "perseus_set_attenuator_in_db: new value: " <<  nav << " old value: " << _att_value << std::endl;
+     perseus_set_attenuator_in_db(_dev, nav);
+     _att_value = nav;
+  }
+  // Enable ADC Dither, Disable ADC Preamp
+  perseus_set_adc(_dev, _adc_dither == true ? 1:0, _adc_preamp == true ? 1:0);
+  // set the NCO frequency in the middle of the range allowed
+  // and, implicitly, the preselector status
+  set_center_freq( (get_freq_range().start() + get_freq_range().stop()) / 2.0 );
+  set_sample_rate( get_sample_rates().start() );
 }
 
 /*
@@ -465,12 +483,9 @@ std::vector<std::string> perseus_source_c::get_gain_names( size_t chan )
   return names;
 }
 
-//
-// FIXME
-//
 osmosdr::gain_range_t perseus_source_c::get_gain_range( size_t chan )
 {
-    return get_gain_range( "Attenuator", chan );
+    return osmosdr::gain_range_t( -30, +7, 1 );
 }
 
 osmosdr::gain_range_t perseus_source_c::get_gain_range( const std::string & name, size_t chan )
@@ -491,16 +506,12 @@ osmosdr::gain_range_t perseus_source_c::get_gain_range( const std::string & name
 
 double perseus_source_c::set_attenuator( double gain, size_t chan )
 {
-  int ret;
-
   gain = - gain;
   if (_dev && _att_value != gain) {
-    ret = perseus_set_attenuator_in_db (_dev, gain);
-
-    if ( PERSEUS_NOERROR == ret ) {
+    if ( PERSEUS_NOERROR == perseus_set_attenuator_in_db (_dev, gain) ) {
       _att_value = gain;
     } else {
-      std::cerr << "ERROR: perseus_set_attenuator_in_db: " <<  gain << std::endl;
+      std::cerr << "ERROR: perseus_set_attenuator_in_db: new value was: " <<  gain << std::endl;
     }
   }
 
@@ -600,21 +611,25 @@ std::vector< std::string > perseus_source_c::get_antennas( size_t chan )
 
 std::string perseus_source_c::set_antenna( const std::string & antenna, size_t chan )
 {
+  std::cerr << "perseus_source_c::set_antenna: preselector: " << _preselector << "ch: " << chan << std::endl;
+
   if ( antenna == "RX" ) {
 	_preselector = false;
 	set_center_freq( get_center_freq() );
-	return "RX";
+	return get_antenna(chan);
   }
   if ( antenna == "RX+PRESELECTOR" ) {
 	_preselector = true;
 	set_center_freq( get_center_freq() );
-    return "RX+PRESELECTOR";
+    return get_antenna(chan);
   }
-  return get_antenna( chan );
+ return get_antenna( chan );
 }
 
 std::string perseus_source_c::get_antenna( size_t chan )
 {
   std::cerr << "perseus_source_c::get_antenna: " << chan << std::endl;
-  return "RX";
+
+  if (_preselector == false ) return "RX";
+  else return "RX+PRESELECTOR";
 }

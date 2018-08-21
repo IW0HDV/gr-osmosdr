@@ -10,6 +10,7 @@ tags:
     - sdrplay
     - uhd
     - osmocom
+    - perseus
 author:
     - Dimitri Stolnikov <horiz0n@gmx.net>
 copyright_owner:

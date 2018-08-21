@@ -219,6 +219,8 @@ While primarily being developed for the OsmoSDR hardware, this block as well sup
  * gnuradio .cfile input through libgnuradio-blocks
  * RFSPACE SDR-IQ, SDR-IP, NetSDR (incl. X2 option)
  * AirSpy Wideband Receiver through libairspy
+ * Microtelecom Perseus HF Receiver through libperseus-sdr 
+   available in https://github.com/Microtelecom/libperseus-sdr/
 #end if
 #if $sourk == 'sink':
  * gnuradio .cfile output through libgnuradio-blocks
@@ -260,6 +262,7 @@ Lines ending with ... mean it's possible to bind devices together by specifying 
   cloudiq=127.0.0.1[:50000]
   sdr-iq=/dev/ttyUSB0
   airspy=0[,bias=0|1][,linearity][,sensitivity]
+  perseus=0[,attenuator=0|-10|-20|-30][,wideband[0|1]][,adcpreamp=0|1][,adcdither=0|1]
 #end if
 #if $sourk == 'sink':
   file='/path/to/your file',rate=1e6[,freq=100e6][,append=true][,throttle=true] ...
@@ -474,6 +477,9 @@ if __name__ == '__main__':
     elif tail.startswith('osmosdr'):
       title = 'osmocom'
       prefix = 'osmosdr'
+    elif tail.startswith('perseus'):
+      title = 'Perseus'
+      prefix = 'perseus'
     else: raise Exception, 'file %s has wrong syntax!'%tail
 
     if tail.endswith ('source.xml'):
